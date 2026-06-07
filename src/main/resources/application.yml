@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: pdf-extractor
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 # Tesseract OCR configuration
 tesseract:

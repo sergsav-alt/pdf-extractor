@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -36,13 +37,17 @@ public class ExtractionController {
     }
 
     /**
-     * Upload a PDF, run OCR, and download the resulting DOCX.
+     * Upload a PDF, run OCR, and save the resulting DOCX to ~/Downloads.
      *
-     * @param file the uploaded PDF file
-     * @return DOCX file as a downloadable response
+     * @param file     the uploaded PDF file
+     * @param filename optional desired output filename (without extension)
+     * @return JSON with the saved file name and its absolute path
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<byte[]> extractPdf(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Map<String, String>> extractPdf(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "filename", required = false) String filename) {
+
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
@@ -58,23 +63,29 @@ public class ExtractionController {
             // Run full pipeline: extract + preprocess + OCR → get pages with text
             ExtractionResult result = pipelineService.processPdfTextOnly(tempPdf);
 
-            // Export to DOCX bytes
-            byte[] docxBytes = docxExportService.exportToDocxBytes(result);
+            // Determine output filename
+            String baseName = (filename != null && !filename.isBlank())
+                    ? filename
+                    : originalFilename.replaceAll("(?i)\\.pdf$", "");
+            String docxFilename = baseName + ".docx";
+
+            // Save to ~/Downloads
+            Path downloadsDir = Path.of(System.getProperty("user.home"), "Downloads");
+            Path outputPath = downloadsDir.resolve(docxFilename);
+
+            // Export to DOCX file
+            docxExportService.exportToDocx(result, outputPath);
 
             // Clean up temp PDF
             Files.deleteIfExists(tempPdf);
 
-            // Build DOCX filename
-            String docxFilename = originalFilename.replaceAll("(?i)\\.pdf$", "") + ".docx";
+            log.info("DOCX saved: {} ({} pages, {} bytes)",
+                    outputPath, result.totalPages(), Files.size(outputPath));
 
-            log.info("Returning DOCX: {} ({} pages, {} bytes)",
-                    docxFilename, result.totalPages(), docxBytes.length);
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + docxFilename + "\"")
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .body(docxBytes);
+            return ResponseEntity.ok(Map.of(
+                    "fileName", docxFilename,
+                    "filePath", outputPath.toAbsolutePath().toString()
+            ));
 
         } catch (IOException e) {
             log.error("Failed to process PDF: {}", e.getMessage(), e);
