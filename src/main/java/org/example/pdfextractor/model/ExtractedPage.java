@@ -1,5 +1,10 @@
 package org.example.pdfextractor.model;
 
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
+import lombok.experimental.Accessors;
+
 import java.awt.image.BufferedImage;
 import java.util.Objects;
 
@@ -7,6 +12,10 @@ import java.util.Objects;
  * Represents a single extracted page from a PDF document,
  * containing the page image and its OCR-recognized text.
  */
+@Getter
+@Accessors(fluent = true)
+@EqualsAndHashCode(exclude = {"image"})
+@ToString(exclude = {"image"})
 public final class ExtractedPage {
 
     private final int pageNumber;
@@ -19,44 +28,5 @@ public final class ExtractedPage {
         this.image = Objects.requireNonNull(image, "image must not be null");
         this.text = Objects.requireNonNullElse(text, "");
         this.confidence = confidence;
-    }
-
-    public int pageNumber() {
-        return pageNumber;
-    }
-
-    public BufferedImage image() {
-        return image;
-    }
-
-    public String text() {
-        return text;
-    }
-
-    public double confidence() {
-        return confidence;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof ExtractedPage that)) return false;
-        return pageNumber == that.pageNumber
-                && Double.compare(confidence, that.confidence) == 0
-                && text.equals(that.text);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(pageNumber, text, confidence);
-    }
-
-    @Override
-    public String toString() {
-        return "ExtractedPage{" +
-                "pageNumber=" + pageNumber +
-                ", textLength=" + text.length() +
-                ", confidence=" + confidence +
-                '}';
     }
 }

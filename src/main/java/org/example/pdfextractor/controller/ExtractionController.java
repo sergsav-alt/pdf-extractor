@@ -1,12 +1,10 @@
 package org.example.pdfextractor.controller;
 
-import org.example.pdfextractor.exception.ExtractionException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.pdfextractor.model.ExtractionResult;
 import org.example.pdfextractor.service.DocxExportService;
 import org.example.pdfextractor.service.ProcessingPipelineService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,39 +19,35 @@ import java.util.Objects;
 /**
  * REST controller for PDF extraction and OCR processing.
  */
+@Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/extract")
 public class ExtractionController {
-
-    private static final Logger log = LoggerFactory.getLogger(ExtractionController.class);
 
     private final ProcessingPipelineService pipelineService;
     private final DocxExportService docxExportService;
 
-    public ExtractionController(ProcessingPipelineService pipelineService,
-                                DocxExportService docxExportService) {
-        this.pipelineService = pipelineService;
-        this.docxExportService = docxExportService;
-    }
-
     /**
      * Upload a PDF, run OCR, and save the resulting DOCX to ~/Downloads.
      *
-     * @param file     the uploaded PDF file
-     * @param filename optional desired output filename (without extension)
+     * @param file      the uploaded PDF file
+     * @param filename  optional desired output filename (without extension)
+     * @param translate optional flag; if "1", adds Russian translation after each English text
      * @return JSON with the saved file name and its absolute path
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> extractPdf(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "filename", required = false) String filename) {
+            @RequestParam(value = "filename", required = false) String filename,
+            @RequestParam(value = "translate", required = false) String translate) {
 
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
         String originalFilename = Objects.requireNonNullElse(file.getOriginalFilename(), "document.pdf");
-        log.info("Received PDF: {} ({} bytes)", originalFilename, file.getSize());
+        log.info("Received PDF: {} ({} bytes), translate={}", originalFilename, file.getSize(), translate);
 
         try {
             // Save uploaded file to a temp location
@@ -73,8 +67,11 @@ public class ExtractionController {
             Path downloadsDir = Path.of(System.getProperty("user.home"), "Downloads");
             Path outputPath = downloadsDir.resolve(docxFilename);
 
+            // Whether to add Russian translation
+            boolean translateEn = "1".equals(translate);
+
             // Export to DOCX file
-            docxExportService.exportToDocx(result, outputPath);
+            docxExportService.exportToDocx(result, outputPath, translateEn);
 
             // Clean up temp PDF
             Files.deleteIfExists(tempPdf);
