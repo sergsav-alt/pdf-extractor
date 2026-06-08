@@ -14,3 +14,10 @@ tesseract:
   datapath: /usr/local/share/tessdata
   language: eng
   pagesegmode: 6
+
+# OpenAI translation service configuration
+open-ai:
+  chat-model:
+    api-key:
+    model: gpt-4o-mini
+    api-url: https://api.openai.com/v1/chat/completions
